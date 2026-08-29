@@ -6,13 +6,13 @@ import {
   calculateXIsWhatPercentOfY, 
   calculatePercentageChange, 
   calculateMarksPercentage 
-} from './utils/calculations.ts';
+} from './utils/calculations';
 
 console.log('=== RUNNING STUDENTKIT CALCULATOR VERIFICATION SUITE ===\n');
 
 let allPassed = true;
 
-function assert(condition, message) {
+function assert(condition: boolean, message: string): void {
   if (condition) {
     console.log(`✅ PASS: ${message}`);
   } else {
@@ -91,5 +91,5 @@ if (allPassed) {
   console.log('🎉 ALL MATHEMATICAL & LOGICAL TESTS PASSED SUCCESSFULLY!');
 } else {
   console.error('❌ SOME TESTS FAILED.');
-  process.exit(1);
+  throw new Error('Test suite execution failed.');
 }
