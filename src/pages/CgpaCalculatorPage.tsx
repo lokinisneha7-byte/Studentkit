@@ -132,7 +132,7 @@ export const CgpaCalculatorPage: React.FC = () => {
 
   const handleCopyResult = () => {
     if (!result) return;
-    const text = `StudentKit CGPA Result:\nCGPA: ${result.gpa} / ${scale === '10-point' ? '10.0' : '4.0'}\nTotal Credits: ${result.totalCredits}\nClassification: ${getGpaClassification(result.gpa, scale).label}\nCalculated at: https://studentkit.app/#/cgpa-calculator`;
+    const text = `StudentKit CGPA Result:\nCGPA: ${result.gpa} / ${scale === '10-point' ? '10.0' : '4.0'}\nTotal Credits: ${result.totalCredits}\nClassification: ${getGpaClassification(result.gpa, scale).label}\nCalculated at: https://studentkit-sigma.vercel.app/cgpa-calculator`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
