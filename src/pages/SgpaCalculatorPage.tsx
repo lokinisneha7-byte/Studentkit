@@ -133,7 +133,7 @@ export const SgpaCalculatorPage: React.FC = () => {
 
   const handleCopyResult = () => {
     if (!result) return;
-    const text = `StudentKit SGPA Result for ${semesterName}:\nSGPA: ${result.gpa} / ${scale === '10-point' ? '10.0' : '4.0'}\nTotal Credits: ${result.totalCredits}\nPerformance: ${getGpaClassification(result.gpa, scale).label}\nCalculated at: https://studentkit.app/#/sgpa-calculator`;
+    const text = `StudentKit SGPA Result for ${semesterName}:\nSGPA: ${result.gpa} / ${scale === '10-point' ? '10.0' : '4.0'}\nTotal Credits: ${result.totalCredits}\nPerformance: ${getGpaClassification(result.gpa, scale).label}\nCalculated at: https://studentkit-sigma.vercel.app/sgpa-calculator`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
