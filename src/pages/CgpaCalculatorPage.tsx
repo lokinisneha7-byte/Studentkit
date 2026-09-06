@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Calculator, Copy, Check, Info } from 'lucide-react';
-import SEOHead from '../components/SEOHead';
+import { SEOHead } from '../components/SEOHead';
 
 interface Subject {
   id: number;
@@ -20,7 +20,7 @@ const gradeOptions = [
   { grade: 0, label: 'F' },
 ];
 
-const CgpaCalculatorPage: React.FC = () => {
+export const CgpaCalculatorPage: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([
     { id: 1, name: 'Subject 1', credits: 4, grade: 9 },
     { id: 2, name: 'Subject 2', credits: 3, grade: 8 },
@@ -29,43 +29,25 @@ const CgpaCalculatorPage: React.FC = () => {
 
   const [copied, setCopied] = useState(false);
 
-  const cgpa = useMemo(() => {
-    const totalCredits = subjects.reduce(
+  const totalCredits = useMemo(() => {
+    return subjects.reduce(
       (sum, subject) => sum + Number(subject.credits || 0),
       0
     );
+  }, [subjects]);
 
+  const cgpa = useMemo(() => {
     if (totalCredits === 0) return 0;
 
-    const weightedPoints = subjects.reduce(
+    const weightedGradePoints = subjects.reduce(
       (sum, subject) =>
         sum +
         Number(subject.credits || 0) * Number(subject.grade || 0),
       0
     );
 
-    return weightedPoints / totalCredits;
-  }, [subjects]);
-
-  const totalCredits = useMemo(
-    () =>
-      subjects.reduce(
-        (sum, subject) => sum + Number(subject.credits || 0),
-        0
-      ),
-    [subjects]
-  );
-
-  const totalGradePoints = useMemo(
-    () =>
-      subjects.reduce(
-        (sum, subject) =>
-          sum +
-          Number(subject.credits || 0) * Number(subject.grade || 0),
-        0
-      ),
-    [subjects]
-  );
+    return weightedGradePoints / totalCredits;
+  }, [subjects, totalCredits]);
 
   const percentage = useMemo(() => {
     return cgpa * 9.5;
@@ -127,7 +109,8 @@ const CgpaCalculatorPage: React.FC = () => {
   const copyResult = async () => {
     const text = `My CGPA is ${cgpa.toFixed(
       2
-    )} with ${totalCredits} total credits.\nStudentKit — https://studentkit-sigma.vercel.app/cgpa-calculator`;
+    )} with ${totalCredits} total credits.
+StudentKit — https://studentkit-sigma.vercel.app/cgpa-calculator`;
 
     try {
       await navigator.clipboard.writeText(text);
@@ -178,6 +161,7 @@ const CgpaCalculatorPage: React.FC = () => {
                   <h2 className="text-xl font-semibold text-gray-900">
                     Enter Your Subjects
                   </h2>
+
                   <p className="text-sm text-gray-500 mt-1">
                     Add each subject's credits and grade points.
                   </p>
@@ -209,7 +193,11 @@ const CgpaCalculatorPage: React.FC = () => {
                       type="text"
                       value={subject.name}
                       onChange={(e) =>
-                        updateSubject(subject.id, 'name', e.target.value)
+                        updateSubject(
+                          subject.id,
+                          'name',
+                          e.target.value
+                        )
                       }
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                       placeholder="Subject name"
@@ -254,7 +242,10 @@ const CgpaCalculatorPage: React.FC = () => {
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                     >
                       {gradeOptions.map((option) => (
-                        <option key={option.grade} value={option.grade}>
+                        <option
+                          key={option.grade}
+                          value={option.grade}
+                        >
                           {option.grade} — {option.label}
                         </option>
                       ))}
@@ -381,12 +372,15 @@ const CgpaCalculatorPage: React.FC = () => {
                     <th className="py-3 pr-4 text-sm font-semibold text-gray-700">
                       Subject
                     </th>
+
                     <th className="py-3 pr-4 text-sm font-semibold text-gray-700">
                       Credits
                     </th>
+
                     <th className="py-3 pr-4 text-sm font-semibold text-gray-700">
                       Grade Point
                     </th>
+
                     <th className="py-3 text-sm font-semibold text-gray-700">
                       Credit × Grade
                     </th>
@@ -395,34 +389,72 @@ const CgpaCalculatorPage: React.FC = () => {
 
                 <tbody>
                   <tr className="border-b border-gray-100">
-                    <td className="py-3 pr-4 text-gray-600">Subject 1</td>
-                    <td className="py-3 pr-4 text-gray-600">4</td>
-                    <td className="py-3 pr-4 text-gray-600">9</td>
-                    <td className="py-3 text-gray-600">36</td>
+                    <td className="py-3 pr-4 text-gray-600">
+                      Subject 1
+                    </td>
+
+                    <td className="py-3 pr-4 text-gray-600">
+                      4
+                    </td>
+
+                    <td className="py-3 pr-4 text-gray-600">
+                      9
+                    </td>
+
+                    <td className="py-3 text-gray-600">
+                      36
+                    </td>
                   </tr>
 
                   <tr className="border-b border-gray-100">
-                    <td className="py-3 pr-4 text-gray-600">Subject 2</td>
-                    <td className="py-3 pr-4 text-gray-600">3</td>
-                    <td className="py-3 pr-4 text-gray-600">8</td>
-                    <td className="py-3 text-gray-600">24</td>
+                    <td className="py-3 pr-4 text-gray-600">
+                      Subject 2
+                    </td>
+
+                    <td className="py-3 pr-4 text-gray-600">
+                      3
+                    </td>
+
+                    <td className="py-3 pr-4 text-gray-600">
+                      8
+                    </td>
+
+                    <td className="py-3 text-gray-600">
+                      24
+                    </td>
                   </tr>
 
                   <tr className="border-b border-gray-100">
-                    <td className="py-3 pr-4 text-gray-600">Subject 3</td>
-                    <td className="py-3 pr-4 text-gray-600">2</td>
-                    <td className="py-3 pr-4 text-gray-600">10</td>
-                    <td className="py-3 text-gray-600">20</td>
+                    <td className="py-3 pr-4 text-gray-600">
+                      Subject 3
+                    </td>
+
+                    <td className="py-3 pr-4 text-gray-600">
+                      2
+                    </td>
+
+                    <td className="py-3 pr-4 text-gray-600">
+                      10
+                    </td>
+
+                    <td className="py-3 text-gray-600">
+                      20
+                    </td>
                   </tr>
 
                   <tr>
                     <td className="py-3 pr-4 font-semibold text-gray-900">
                       Total
                     </td>
+
                     <td className="py-3 pr-4 font-semibold text-gray-900">
                       9
                     </td>
-                    <td className="py-3 pr-4 text-gray-900">—</td>
+
+                    <td className="py-3 pr-4 text-gray-900">
+                      —
+                    </td>
+
                     <td className="py-3 font-semibold text-gray-900">
                       80
                     </td>
@@ -470,6 +502,7 @@ const CgpaCalculatorPage: React.FC = () => {
                 <h3 className="font-semibold text-gray-900 mb-1">
                   What is CGPA?
                 </h3>
+
                 <p className="text-gray-600 leading-7">
                   CGPA stands for Cumulative Grade Point Average. It
                   represents a student's average grade performance across
@@ -482,6 +515,7 @@ const CgpaCalculatorPage: React.FC = () => {
                 <h3 className="font-semibold text-gray-900 mb-1">
                   How do I calculate CGPA with credits?
                 </h3>
+
                 <p className="text-gray-600 leading-7">
                   Multiply each subject's grade point by its credit value,
                   add all the weighted grade points, and divide the result
@@ -493,6 +527,7 @@ const CgpaCalculatorPage: React.FC = () => {
                 <h3 className="font-semibold text-gray-900 mb-1">
                   Can I use this CGPA calculator for college?
                 </h3>
+
                 <p className="text-gray-600 leading-7">
                   Yes. You can enter your college subjects, credits, and
                   grade points to calculate a credit-weighted CGPA.
@@ -503,6 +538,7 @@ const CgpaCalculatorPage: React.FC = () => {
                 <h3 className="font-semibold text-gray-900 mb-1">
                   How is CGPA converted to percentage?
                 </h3>
+
                 <p className="text-gray-600 leading-7">
                   There is no single universal conversion formula. Some
                   institutions use a specific conversion rule, while others
@@ -520,5 +556,3 @@ const CgpaCalculatorPage: React.FC = () => {
     </>
   );
 };
-
-export default CgpaCalculatorPage;
