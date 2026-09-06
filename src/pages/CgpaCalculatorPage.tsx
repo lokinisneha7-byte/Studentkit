@@ -1,500 +1,524 @@
-import React, { useState } from 'react';
-import { SEOHead } from '../components/SEOHead';
-import { AdPlaceholder } from '../components/AdPlaceholder';
-import { SubjectRow, GradeScale } from '../types';
-import { 
-  STANDARD_GRADES, 
-  FOUR_POINT_GRADES, 
-  calculateWeightedGpa, 
-  getGpaClassification 
-} from '../utils/calculations';
-import { 
-  GraduationCap, 
-  Plus, 
-  Trash2, 
-  RotateCcw, 
-  Calculator, 
-  Copy, 
-  Check, 
-  Printer, 
-  Sparkles, 
-  AlertCircle, 
-  BookOpen,
-  Info
-} from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Calculator, Copy, Check, Info } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
-const INITIAL_SUBJECTS: SubjectRow[] = [
-  { id: '1', name: 'Engineering Mathematics / Core Subject 1', credits: 4, gradePoint: 10, gradeLabel: 'O (Outstanding)' },
-  { id: '2', name: 'Data Structures & Algorithms', credits: 4, gradePoint: 9, gradeLabel: 'A+ (Excellent)' },
-  { id: '3', name: 'Database Management Systems', credits: 3, gradePoint: 8, gradeLabel: 'A (Very Good)' },
-  { id: '4', name: 'Computer Networks', credits: 3, gradePoint: 9, gradeLabel: 'A+ (Excellent)' },
-  { id: '5', name: 'Software Engineering Lab', credits: 2, gradePoint: 10, gradeLabel: 'O (Outstanding)' },
+interface Subject {
+  id: number;
+  name: string;
+  credits: number;
+  grade: number;
+}
+
+const gradeOptions = [
+  { grade: 10, label: 'O / A+' },
+  { grade: 9, label: 'A+' },
+  { grade: 8, label: 'A' },
+  { grade: 7, label: 'B+' },
+  { grade: 6, label: 'B' },
+  { grade: 5, label: 'C' },
+  { grade: 4, label: 'D' },
+  { grade: 0, label: 'F' },
 ];
 
-export const CgpaCalculatorPage: React.FC = () => {
-  const [scale, setScale] = useState<GradeScale>('10-point');
-  const [subjects, setSubjects] = useState<SubjectRow[]>(INITIAL_SUBJECTS);
-  const [result, setResult] = useState<{
-    gpa: number;
-    totalCredits: number;
-    totalPoints: number;
-    calculated: boolean;
-  } | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+const CgpaCalculatorPage: React.FC = () => {
+  const [subjects, setSubjects] = useState<Subject[]>([
+    { id: 1, name: 'Subject 1', credits: 4, grade: 9 },
+    { id: 2, name: 'Subject 2', credits: 3, grade: 8 },
+    { id: 3, name: 'Subject 3', credits: 3, grade: 9 },
+  ]);
+
   const [copied, setCopied] = useState(false);
 
-  const gradeOptions = scale === '10-point' ? STANDARD_GRADES : FOUR_POINT_GRADES;
+  const cgpa = useMemo(() => {
+    const totalCredits = subjects.reduce(
+      (sum, subject) => sum + Number(subject.credits || 0),
+      0
+    );
 
-  const handleAddSubject = () => {
-    const defaultGrade = gradeOptions[0];
-    const newSubject: SubjectRow = {
-      id: Date.now().toString(),
-      name: `Subject ${subjects.length + 1}`,
-      credits: 3,
-      gradePoint: defaultGrade.points,
-      gradeLabel: defaultGrade.label,
-    };
-    setSubjects([...subjects, newSubject]);
-    setErrorMessage(null);
-  };
+    if (totalCredits === 0) return 0;
 
-  const handleRemoveSubject = (id: string) => {
-    if (subjects.length <= 1) {
-      setErrorMessage('You need at least one subject in the list.');
-      return;
-    }
-    setSubjects(subjects.filter((s) => s.id !== id));
-    setErrorMessage(null);
-  };
+    const weightedPoints = subjects.reduce(
+      (sum, subject) =>
+        sum +
+        Number(subject.credits || 0) * Number(subject.grade || 0),
+      0
+    );
 
-  const handleSubjectChange = (
-    id: string,
-    field: 'name' | 'credits' | 'grade',
+    return weightedPoints / totalCredits;
+  }, [subjects]);
+
+  const totalCredits = useMemo(
+    () =>
+      subjects.reduce(
+        (sum, subject) => sum + Number(subject.credits || 0),
+        0
+      ),
+    [subjects]
+  );
+
+  const totalGradePoints = useMemo(
+    () =>
+      subjects.reduce(
+        (sum, subject) =>
+          sum +
+          Number(subject.credits || 0) * Number(subject.grade || 0),
+        0
+      ),
+    [subjects]
+  );
+
+  const percentage = useMemo(() => {
+    return cgpa * 9.5;
+  }, [cgpa]);
+
+  const updateSubject = (
+    id: number,
+    field: keyof Subject,
     value: string | number
   ) => {
-    setSubjects((prev) =>
-      prev.map((sub) => {
-        if (sub.id !== id) return sub;
-
-        if (field === 'name') {
-          return { ...sub, name: String(value) };
-        } else if (field === 'credits') {
-          const num = parseFloat(String(value));
-          return { ...sub, credits: isNaN(num) ? 0 : num };
-        } else if (field === 'grade') {
-          const selected = gradeOptions.find((g) => g.label === value);
-          if (selected) {
-            return {
-              ...sub,
-              gradePoint: selected.points,
-              gradeLabel: selected.label,
-            };
-          }
-        }
-        return sub;
-      })
+    setSubjects((currentSubjects) =>
+      currentSubjects.map((subject) =>
+        subject.id === id
+          ? {
+              ...subject,
+              [field]:
+                field === 'credits' || field === 'grade'
+                  ? Number(value)
+                  : value,
+            }
+          : subject
+      )
     );
-    setErrorMessage(null);
   };
 
-  const handleCalculate = () => {
-    const res = calculateWeightedGpa(subjects);
-    if (!res.isValid) {
-      setErrorMessage(res.error || 'Please ensure all credits are valid and greater than 0.');
-      setResult(null);
-      return;
-    }
+  const addSubject = () => {
+    const newId =
+      subjects.length > 0
+        ? Math.max(...subjects.map((subject) => subject.id)) + 1
+        : 1;
 
-    setErrorMessage(null);
-    setResult({
-      gpa: res.gpa,
-      totalCredits: res.totalCredits,
-      totalPoints: res.totalPoints,
-      calculated: true,
-    });
-  };
-
-  const handleReset = () => {
     setSubjects([
-      { id: '1', name: 'Subject 1', credits: 3, gradePoint: gradeOptions[0].points, gradeLabel: gradeOptions[0].label },
-      { id: '2', name: 'Subject 2', credits: 3, gradePoint: gradeOptions[1].points, gradeLabel: gradeOptions[1].label },
-      { id: '3', name: 'Subject 3', credits: 4, gradePoint: gradeOptions[2].points, gradeLabel: gradeOptions[2].label },
+      ...subjects,
+      {
+        id: newId,
+        name: `Subject ${newId}`,
+        credits: 3,
+        grade: 8,
+      },
     ]);
-    setResult(null);
-    setErrorMessage(null);
   };
 
-  const handleLoadSample = () => {
-    setSubjects(INITIAL_SUBJECTS);
-    setErrorMessage(null);
-    setResult(null);
+  const removeSubject = (id: number) => {
+    if (subjects.length <= 1) return;
+
+    setSubjects((currentSubjects) =>
+      currentSubjects.filter((subject) => subject.id !== id)
+    );
   };
 
-  const handleCopyResult = () => {
-    if (!result) return;
-    const text = `StudentKit CGPA Result:\nCGPA: ${result.gpa} / ${scale === '10-point' ? '10.0' : '4.0'}\nTotal Credits: ${result.totalCredits}\nClassification: ${getGpaClassification(result.gpa, scale).label}\nCalculated at: https://studentkit-sigma.vercel.app/cgpa-calculator`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const resetCalculator = () => {
+    setSubjects([
+      { id: 1, name: 'Subject 1', credits: 4, grade: 9 },
+      { id: 2, name: 'Subject 2', credits: 3, grade: 8 },
+      { id: 3, name: 'Subject 3', credits: 3, grade: 9 },
+    ]);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const copyResult = async () => {
+    const text = `My CGPA is ${cgpa.toFixed(
+      2
+    )} with ${totalCredits} total credits.\nStudentKit — https://studentkit-sigma.vercel.app/cgpa-calculator`;
 
-  const classification = result ? getGpaClassification(result.gpa, scale) : null;
-  const estimatedPercentage95 = result && scale === '10-point' ? (result.gpa * 9.5).toFixed(2) : null;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <>
       <SEOHead
-        title="CGPA Calculator — Weighted Grade Point Average"
-        description="Calculate your CGPA using the official university credit-weighted formula. Accurate grade conversion for Indian universities and international colleges."
-        keywords="CGPA calculator, credit weighted CGPA, CGPA to percentage, calculate CGPA college, university GPA"
+        title="CGPA Calculator — Calculate CGPA with Credits"
+        description="Free CGPA calculator for college students. Calculate credit-weighted CGPA using subject grades and credits, with 10-point and 4-point grading scales."
+        keywords="CGPA calculator, CGPA calculator with credits, calculate CGPA, CGPA to percentage, college CGPA calculator, university CGPA calculator, 10 point CGPA calculator"
         canonicalPath="/cgpa-calculator"
       />
 
-      {/* Page Header */}
-      <div className="text-center max-w-2xl mx-auto mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-semibold mb-3">
-          <GraduationCap className="w-4 h-4 text-brand-600" />
-          <span>Academic Grade Calculator</span>
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-          CGPA Calculator
-        </h1>
-        <p className="mt-2 text-base text-slate-600">
-          Calculate your CGPA quickly and easily using the official university credit-weighted formula.
-        </p>
-      </div>
+      <main className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-5xl mx-auto">
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Calculator Form */}
-        <div className="lg:col-span-8 space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-subtle">
-            {/* Top Bar: Scale Selector & Sample Data */}
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Grading Scale:</span>
-                <div className="inline-flex bg-slate-100 p-1 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => { setScale('10-point'); setResult(null); }}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
-                      scale === '10-point'
-                        ? 'bg-white text-brand-600 shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    10-Point (India / UGC)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setScale('4-point'); setResult(null); }}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
-                      scale === '4-point'
-                        ? 'bg-white text-brand-600 shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    4-Point (US / International)
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleLoadSample}
-                className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Load Sample Data</span>
-              </button>
+          {/* Header */}
+          <section className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 mb-4">
+              <Calculator size={28} />
             </div>
 
-            {/* Error banner */}
-            {errorMessage && (
-              <div className="my-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2.5 text-xs text-rose-700 font-medium">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+              CGPA Calculator
+            </h1>
 
-            {/* Subjects Table */}
-            <div className="mt-6 space-y-3">
-              <div className="hidden sm:grid sm:grid-cols-12 gap-3 text-xs font-bold text-slate-400 uppercase tracking-wider px-2">
-                <div className="col-span-5">Subject / Course Name</div>
-                <div className="col-span-3">Credits</div>
-                <div className="col-span-3">Grade</div>
-                <div className="col-span-1 text-center">Action</div>
-              </div>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Calculate your college CGPA quickly using subject grades and
+              credit hours. Enter your subjects below to get your
+              credit-weighted CGPA.
+            </p>
+          </section>
 
-              {subjects.map((sub, index) => (
-                <div
-                  key={sub.id}
-                  className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3.5 sm:p-2 rounded-xl bg-slate-50/70 border border-slate-200/80 items-center transition-all hover:border-slate-300"
+          {/* Calculator */}
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-5 md:p-6 border-b border-gray-200">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Enter Your Subjects
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Add each subject's credits and grade points.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resetCalculator}
+                  className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition"
                 >
-                  <div className="sm:col-span-5">
-                    <label className="block sm:hidden text-xs font-bold text-slate-500 mb-1">
-                      Subject Name
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {/* Subjects */}
+            <div className="p-5 md:p-6 space-y-4">
+              {subjects.map((subject, index) => (
+                <div
+                  key={subject.id}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-4 rounded-xl bg-gray-50 border border-gray-200"
+                >
+                  <div className="md:col-span-5">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Subject {index + 1}
                     </label>
+
                     <input
                       type="text"
-                      value={sub.name}
-                      onChange={(e) => handleSubjectChange(sub.id, 'name', e.target.value)}
-                      placeholder={`e.g. Subject ${index + 1}`}
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:border-brand-500 focus:outline-hidden"
+                      value={subject.name}
+                      onChange={(e) =>
+                        updateSubject(subject.id, 'name', e.target.value)
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                      placeholder="Subject name"
                     />
                   </div>
 
-                  <div className="sm:col-span-3">
-                    <label className="block sm:hidden text-xs font-bold text-slate-500 mb-1">
-                      Credits (e.g. 1-6)
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Credits
                     </label>
+
                     <input
                       type="number"
-                      min="0.5"
-                      max="20"
+                      min="0"
                       step="0.5"
-                      value={sub.credits || ''}
-                      onChange={(e) => handleSubjectChange(sub.id, 'credits', e.target.value)}
-                      placeholder="Credits"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:border-brand-500 focus:outline-hidden"
+                      value={subject.credits}
+                      onChange={(e) =>
+                        updateSubject(
+                          subject.id,
+                          'credits',
+                          e.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                     />
                   </div>
 
-                  <div className="sm:col-span-3">
-                    <label className="block sm:hidden text-xs font-bold text-slate-500 mb-1">
-                      Grade
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Grade Point
                     </label>
+
                     <select
-                      value={sub.gradeLabel}
-                      onChange={(e) => handleSubjectChange(sub.id, 'grade', e.target.value)}
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:border-brand-500 focus:outline-hidden cursor-pointer"
+                      value={subject.grade}
+                      onChange={(e) =>
+                        updateSubject(
+                          subject.id,
+                          'grade',
+                          e.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                     >
-                      {gradeOptions.map((opt) => (
-                        <option key={opt.label} value={opt.label}>
-                          {opt.label} ({opt.points} pts)
+                      {gradeOptions.map((option) => (
+                        <option key={option.grade} value={option.grade}>
+                          {option.grade} — {option.label}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="sm:col-span-1 flex justify-end sm:justify-center">
+                  <div className="md:col-span-1">
                     <button
                       type="button"
-                      onClick={() => handleRemoveSubject(sub.id)}
-                      aria-label="Remove subject"
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      onClick={() => removeSubject(subject.id)}
+                      disabled={subjects.length <= 1}
+                      className="w-full md:w-auto px-3 py-2.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      aria-label={`Remove ${subject.name}`}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      ×
                     </button>
                   </div>
                 </div>
               ))}
-            </div>
 
-            {/* Buttons Row */}
-            <div className="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={handleAddSubject}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold transition-colors"
+                onClick={addSubject}
+                className="w-full rounded-xl border-2 border-dashed border-gray-300 py-3 text-sm font-semibold text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition"
               >
-                <Plus className="w-4 h-4" />
-                <span>Add Subject</span>
+                + Add Subject
               </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs sm:text-sm font-medium transition-colors"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCalculate}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-brand-500/20 transition-all hover:translate-y-[-1px]"
-                >
-                  <Calculator className="w-4 h-4" />
-                  <span>Calculate CGPA</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Reserved Ad Slot */}
-          <AdPlaceholder slotType="banner" />
-
-          {/* Educational / SEO Content */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 space-y-6">
-            <div className="flex items-center gap-2 text-brand-600 font-bold text-lg">
-              <BookOpen className="w-5 h-5" />
-              <h2>Understanding CGPA &amp; Calculation Guide</h2>
             </div>
 
-            <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
-              <div>
-                <h3 className="text-base font-bold text-slate-800 mb-1">What is CGPA?</h3>
-                <p>
-                  <strong>CGPA</strong> stands for <em>Cumulative Grade Point Average</em>. It is the weighted mean of the grade points obtained across all accredited subjects and semesters by a college or university student.
-                </p>
-              </div>
+            {/* Result */}
+            <div className="p-5 md:p-6 bg-indigo-50 border-t border-indigo-100">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-              <div>
-                <h3 className="text-base font-bold text-slate-800 mb-1">How is CGPA Calculated?</h3>
-                <p>
-                  Unlike a simple average, CGPA accounts for the number of credit hours assigned to each course. Subjects with higher credits (such as core engineering, major electives, or final-year projects) hold higher weight in your overall GPA.
-                </p>
-                <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 font-mono text-xs text-slate-800">
-                  CGPA = Σ (Credit × Grade Point) / Σ (Total Credits)
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-base font-bold text-slate-800 mb-1">
-                  Converting CGPA to Percentage (University Variations)
-                </h3>
-                <p>
-                  Different universities and education boards follow different official percentage conversion formulas. For instance:
-                </p>
-                <ul className="list-disc pl-5 mt-2 space-y-1 text-xs sm:text-sm text-slate-600">
-                  <li><strong>CBSE / Standard 9.5 Method:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded">Percentage = CGPA × 9.5</code></li>
-                  <li><strong>Mumbai University (Engg):</strong> <code className="bg-slate-100 px-1 py-0.5 rounded">Percentage = 7.1 × CGPA + 11</code> (for CGPA &lt; 7) or <code className="bg-slate-100 px-1 py-0.5 rounded">7.4 × CGPA + 12</code> (for CGPA ≥ 7)</li>
-                  <li><strong>VTU (Visvesvaraya Tech University):</strong> <code className="bg-slate-100 px-1 py-0.5 rounded">Percentage = (CGPA - 0.75) × 10</code></li>
-                  <li><strong>Anna University:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded">Percentage = CGPA × 10</code></li>
-                </ul>
-                <p className="text-xs text-slate-500 mt-2 italic">
-                  *Always consult your college transcript or university examination ordinance for the exact certified conversion equation.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Results & Grade Table */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Result Card */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-subtle">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">
-              Calculation Result
-            </h3>
-
-            {result && result.calculated ? (
-              <div className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
-                {/* Big Score Display */}
-                <div className="p-6 rounded-2xl bg-gradient-to-br from-brand-50 to-indigo-50/50 border border-brand-100 text-center">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-brand-600">
+                <div className="bg-white rounded-xl p-5 border border-indigo-100">
+                  <p className="text-sm text-gray-500 mb-1">
                     Your CGPA
-                  </span>
-                  <div className="text-5xl font-black text-brand-700 mt-1">
-                    {result.gpa}
-                    <span className="text-lg font-bold text-slate-400 ml-1">
-                      / {scale === '10-point' ? '10' : '4.0'}
-                    </span>
-                  </div>
-                  <div className="mt-3">
-                    <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full border ${classification?.badgeColor}`}>
-                      {classification?.label}
-                    </span>
-                  </div>
+                  </p>
+
+                  <p className="text-4xl font-bold text-indigo-600">
+                    {cgpa.toFixed(2)}
+                  </p>
                 </div>
 
-                {/* Metrics Breakdown */}
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50">
-                    <span className="text-slate-500">Total Credits Earned:</span>
-                    <span className="font-bold text-slate-900">{result.totalCredits}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50">
-                    <span className="text-slate-500">Total Weighted Points:</span>
-                    <span className="font-bold text-slate-900">{result.totalPoints}</span>
-                  </div>
+                <div className="bg-white rounded-xl p-5 border border-indigo-100">
+                  <p className="text-sm text-gray-500 mb-1">
+                    Total Credits
+                  </p>
 
-                  {estimatedPercentage95 && (
-                    <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-amber-900">
-                          Estimated Percentage:
-                        </span>
-                        <span className="text-base font-bold text-amber-900">
-                          {estimatedPercentage95}%
-                        </span>
-                      </div>
-                      <span className="block text-[11px] text-amber-700 mt-1">
-                        (9.5 conversion method — CGPA × 9.5)
-                      </span>
-                      <p className="text-[10px] text-amber-800/80 mt-1.5 leading-tight">
-                        Note: Please verify your specific university conversion guideline as formulas vary across institutions.
-                      </p>
-                    </div>
-                  )}
+                  <p className="text-3xl font-bold text-gray-900">
+                    {totalCredits}
+                  </p>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleCopyResult}
-                    className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copied!' : 'Copy'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePrint}
-                    className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print</span>
-                  </button>
+                <div className="bg-white rounded-xl p-5 border border-indigo-100">
+                  <p className="text-sm text-gray-500 mb-1">
+                    Approx. Percentage
+                  </p>
+
+                  <p className="text-3xl font-bold text-gray-900">
+                    {percentage.toFixed(2)}%
+                  </p>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    Based on CGPA × 9.5
+                  </p>
                 </div>
+
               </div>
-            ) : (
-              <div className="py-12 text-center text-slate-400">
-                <Calculator className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                <p className="text-sm font-semibold text-slate-600">No Calculation Yet</p>
-                <p className="text-xs text-slate-400 mt-1 max-w-[200px] mx-auto">
-                  Enter your subject credits &amp; grades and click <strong>Calculate CGPA</strong>.
+
+              <div className="flex flex-col sm:flex-row gap-3 mt-5">
+                <button
+                  type="button"
+                  onClick={copyResult}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-semibold hover:bg-indigo-700 transition"
+                >
+                  {copied ? <Check size={18} /> : <Copy size={18} />}
+                  {copied ? 'Copied!' : 'Copy Result'}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Formula */}
+          <section className="mt-8 bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 text-indigo-600">
+                <Info size={20} />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-3">
+                  How is CGPA calculated?
+                </h2>
+
+                <p className="text-gray-600 leading-7 mb-4">
+                  CGPA is commonly calculated as a credit-weighted average
+                  of grade points. Each subject's grade point is multiplied
+                  by its credits, and the total is divided by the total
+                  number of credits.
                 </p>
-              </div>
-            )}
-          </div>
 
-          {/* Reference Grade Scale Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-subtle">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3 flex items-center gap-1.5">
-              <Info className="w-4 h-4 text-brand-600" />
-              <span>{scale === '10-point' ? '10-Point Grade Reference' : '4-Point Grade Reference'}</span>
-            </h4>
+                <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 font-medium text-gray-800">
+                  CGPA = Σ (Credit × Grade Point) ÷ Σ Credits
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Example */}
+          <section className="mt-6 bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              CGPA Calculation Example
+            </h2>
+
+            <p className="text-gray-600 leading-7 mb-4">
+              Suppose a student has the following three subjects on a
+              10-point grading scale:
+            </p>
+
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-semibold">
-                    <th className="pb-2">Grade</th>
-                    <th className="pb-2">Points</th>
-                    <th className="pb-2">Range</th>
+                  <tr className="border-b border-gray-200">
+                    <th className="py-3 pr-4 text-sm font-semibold text-gray-700">
+                      Subject
+                    </th>
+                    <th className="py-3 pr-4 text-sm font-semibold text-gray-700">
+                      Credits
+                    </th>
+                    <th className="py-3 pr-4 text-sm font-semibold text-gray-700">
+                      Grade Point
+                    </th>
+                    <th className="py-3 text-sm font-semibold text-gray-700">
+                      Credit × Grade
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 text-slate-600">
-                  {gradeOptions.map((g) => (
-                    <tr key={g.label} className="hover:bg-slate-50/50">
-                      <td className="py-1.5 font-bold text-slate-800">{g.label.split(' ')[0]}</td>
-                      <td className="py-1.5 font-semibold text-brand-600">{g.points}</td>
-                      <td className="py-1.5 text-slate-500">{g.description}</td>
-                    </tr>
-                  ))}
+
+                <tbody>
+                  <tr className="border-b border-gray-100">
+                    <td className="py-3 pr-4 text-gray-600">Subject 1</td>
+                    <td className="py-3 pr-4 text-gray-600">4</td>
+                    <td className="py-3 pr-4 text-gray-600">9</td>
+                    <td className="py-3 text-gray-600">36</td>
+                  </tr>
+
+                  <tr className="border-b border-gray-100">
+                    <td className="py-3 pr-4 text-gray-600">Subject 2</td>
+                    <td className="py-3 pr-4 text-gray-600">3</td>
+                    <td className="py-3 pr-4 text-gray-600">8</td>
+                    <td className="py-3 text-gray-600">24</td>
+                  </tr>
+
+                  <tr className="border-b border-gray-100">
+                    <td className="py-3 pr-4 text-gray-600">Subject 3</td>
+                    <td className="py-3 pr-4 text-gray-600">2</td>
+                    <td className="py-3 pr-4 text-gray-600">10</td>
+                    <td className="py-3 text-gray-600">20</td>
+                  </tr>
+
+                  <tr>
+                    <td className="py-3 pr-4 font-semibold text-gray-900">
+                      Total
+                    </td>
+                    <td className="py-3 pr-4 font-semibold text-gray-900">
+                      9
+                    </td>
+                    <td className="py-3 pr-4 text-gray-900">—</td>
+                    <td className="py-3 font-semibold text-gray-900">
+                      80
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
-          </div>
+
+            <div className="mt-5 rounded-xl bg-indigo-50 p-4 text-gray-800">
+              <p className="font-semibold">
+                CGPA = 80 ÷ 9 = 8.89
+              </p>
+
+              <p className="text-sm text-gray-600 mt-2">
+                So, the student's credit-weighted CGPA is approximately
+                <strong> 8.89</strong>.
+              </p>
+            </div>
+          </section>
+
+          {/* Important Note */}
+          <section className="mt-6 bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-3">
+              Important Note About CGPA
+            </h2>
+
+            <p className="text-gray-600 leading-7">
+              Grading scales, grade-point values, and CGPA-to-percentage
+              conversion rules can vary between universities and colleges.
+              This calculator uses the grade points and credits you enter.
+              For an official percentage conversion, always check your
+              university's academic regulations.
+            </p>
+          </section>
+
+          {/* FAQ */}
+          <section className="mt-6 bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-5">
+              Frequently Asked Questions
+            </h2>
+
+            <div className="space-y-5">
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  What is CGPA?
+                </h3>
+                <p className="text-gray-600 leading-7">
+                  CGPA stands for Cumulative Grade Point Average. It
+                  represents a student's average grade performance across
+                  subjects or semesters, often taking subject credits into
+                  account.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  How do I calculate CGPA with credits?
+                </h3>
+                <p className="text-gray-600 leading-7">
+                  Multiply each subject's grade point by its credit value,
+                  add all the weighted grade points, and divide the result
+                  by the total credits.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  Can I use this CGPA calculator for college?
+                </h3>
+                <p className="text-gray-600 leading-7">
+                  Yes. You can enter your college subjects, credits, and
+                  grade points to calculate a credit-weighted CGPA.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  How is CGPA converted to percentage?
+                </h3>
+                <p className="text-gray-600 leading-7">
+                  There is no single universal conversion formula. Some
+                  institutions use a specific conversion rule, while others
+                  may provide their own official method. Check your
+                  university's regulations before using a converted
+                  percentage for academic or application purposes.
+                </p>
+              </div>
+
+            </div>
+          </section>
+
         </div>
-      </div>
-    </div>
+      </main>
+    </>
   );
 };
+
+export default CgpaCalculatorPage;
